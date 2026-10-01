@@ -1,7 +1,7 @@
 # Hyperoperation-Native Computing for AI
 
 **Concept Note v0.1**
-**Author:** [작성자명]
+**Author:** dongmin Seo
 **Initial concept date:** 2026-10-01
 **Status:** Private research concept / early-stage architecture proposal
 
@@ -684,6 +684,6 @@ The concept was subsequently extended to include:
 - HyperObjects as first-class computational structures
 - potential application as a post-LLM AI architecture
 
-**Author:** [작성자명]
+**Author:** dongmin Seo
 
 All subsequent modifications should remain preserved through Git version history.
