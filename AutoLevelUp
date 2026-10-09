@@ -22,23 +22,27 @@ I hadn't really learned C# properly, so I thought this would be a good way to st
 
 Once I had finished refactoring, I planned to publish the source code on GitHub.
 
-But things gradually got bigger than expected.
+But once I actually started developing the mod, I realized there was far more to investigate and verify than I'd originally expected.
 
-What started as a companion build system expanded to include mercenaries and animal companions, and I eventually added Gestalt support as well. There were also far more things to test in the actual game than I'd anticipated.
+The game handles leveling differently for the main character, story companions, animal companions (pets), and custom mercenaries. On top of that, there were countless combinations of classes, archetypes, feats, and spells to account for. Much more needed to be tested in the actual game than I'd anticipated.
+
+Along the way, I expanded support beyond story companions to include mercenaries and animal companions, and eventually added Gestalt support as well.
 
 Eventually, I released previews 0.8 and 0.9, followed by the official 1.0 release. People started reporting bugs, giving feedback, and I even received a donation, which I hadn't expected at all.
 
-Along the way, I started getting involved with the WotR modding community and discovered that experienced modders already had their own established practices and implementation patterns.
+At some point, I discovered that there was an established WotR modding community. Until then, I hadn't even known such a community existed.
 
-That made me curious about how other modders had implemented the same kinds of things I'd asked my AI agents to build. Were there already well-established solutions that the AI had completely missed? Had it created unnecessarily complicated code for problems other modders had solved much more simply?
+I learned that experienced modders followed shared implementation patterns and development practices to avoid conflicts between mods, maintain compatibility, and make collaboration with other developers easier.
 
-So I started digging through other developers' GitHub repositories and reading their source code.
+That made me curious about how those developers had implemented the same kinds of features I'd asked my AI agents to build. Were there already well-established solutions that the AI had completely missed? Had it created unnecessarily complicated code for problems other modders had solved much more simply?
 
-My original plan was to learn C# by personally refactoring the pile of AI slop. But before doing that, I found myself studying how other modders actually write their code.
+So I started exploring other developers' GitHub repositories and studying their source code.
+
+My original plan was to learn C# by personally refactoring the pile of AI slop. But before getting to that, I found myself researching how experienced modders actually write their code.
 
 **As of October 9, 2026, AutoLevelUp has reached version 1.0, but I haven't published the source code yet.**
 
-Honestly, I'm pretty embarrassed to publish it in its current state. Should I wait until I've properly learned C# before making it public? But that could take forever.
+Honestly, I'm too embarrassed to publish it in its current state. Should I wait until I've properly learned C# before making it public? But that could take forever.
 
 So far, I've been comparing other developers' repositories and existing mods, looking at coding conventions, compatibility, and save-game safety. I've consolidated the research into a final document, but I haven't started refactoring the actual mod code or validating the changes against real saves yet.
 
@@ -48,7 +52,7 @@ I'm still trying to figure out how much cleanup is enough before I feel comforta
 
 ---
 
-### R12-6. Public Repository Separation & Community-Conventional Refactoring
+### R12-6. Public Repository Separation & Refactoring to Community Conventions
 
 To be carried out after the `1.0.0` release. The code should be made readable and aligned with community conventions, with as much of the refactoring as possible done by me. Current assessments, levels of evidence, and task order follow the final research findings. Individual research documents will be retained as reference material.
 
@@ -61,7 +65,7 @@ There are three goals, in priority order (decision made October 9, 2026). Any al
 - [ ] Decide on the license and whether to include `catalog/generated/`.
 - [x] Consolidate research documents — Record final conclusions, verification limitations, and task priorities by goal in `findings/R12-6-final.md`. Preserve the five existing research documents without modifying or deleting them.
 - [x] Incorporate research review findings and additional safety precedents — Final research §6. Reproduced isolation of leftover patches after initialization failure, added a ToyBox first-load failure counterexample, and expanded samples involving companion level changes. JSON adoption remains undecided; A01/V05 references and goal-based task ordering have been consolidated. No product code changes or real save-game validation performed.
-- [x] Investigate collaboration conventions in community participants' repositories — Results documented. Compared selected files from nine pinned commits by five authors. Examined state ownership, API access, UMM decisions, initialization failure cleanup, and candidates for improving build and logging practices. Added Vek17 findings covering TTT shared foundations, Runtime provenance, UnitPart, helper side effects, and save migration. Source repositories for the remaining participants could not be linked. No implementation changes made.
+- [x] Investigate collaboration conventions in repositories belonging to modders from the discussions being studied — Results documented. Compared selected files from nine pinned commits by five authors. Examined state ownership, API access, UMM decisions, initialization failure cleanup, and candidates for improving build and logging practices. Added Vek17 findings covering TTT shared foundations, Runtime provenance, UnitPart, helper side effects, and save migration. Source repositories for the remaining participants could not be linked. No implementation changes made.
 - [x] Research replacement approaches and existing mods — Report completed. Investigated candidates for migrating to per-save storage, isolated tests of standard JSON parsers (30 outputs and 8 rejection cases each on net10 and net481), and compared two directly similar mods. No changes applied to the product and no actual save migration performed.
 - [x] Revisit save safety, existing helpers, and utility-mod conventions — Results documented. Reproduced cases involving removal of Gestalt corrections and missing-GUID isolation. Examined boundaries for restoring original data blocks, backup scope, and existing API/JSON approaches. Actual removal, resaving, and reloading tests remain incomplete.
 - [x] Examine UI, settings, and build structures in utility-style mods (ToyBox, BubbleBuffs, and ModMenu). Follow-up research C01–C06 found community precedents for UMM windows and multiple patches within a single file. ModMenu is an optional approach for settings toggles. The final implementation strategy for file separation and library adoption remains undecided.
