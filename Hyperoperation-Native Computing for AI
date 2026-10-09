@@ -687,3 +687,91 @@ The concept was subsequently extended to include:
 **Author:** dongmin Seo
 
 All subsequent modifications should remain preserved through Git version history.
+
+21. Related Work and Prior Research
+
+Several existing research areas overlap with parts of this concept. The following works provide useful theoretical foundations and practical implementations.
+
+1. Power Circuits, Exponential Algebra, and Time Complexity (2010)
+
+Authors: Myasnikov, Ushakov, Won
+
+Paper: https://arxiv.org/abs/1006.2570
+
+Introduces Power Circuits, a compressed representation of extremely large integers, including exponential towers. Certain arithmetic operations and comparisons can be performed without explicitly expanding the represented numbers.
+
+Relevance: Compact hyperoperation-related representations and computation without full numerical expansion.
+
+2. egg: Fast and Extensible Equality Saturation (2021)
+
+Authors: Willsey et al.
+
+Paper: https://arxiv.org/abs/2004.03082
+
+Implementation: https://github.com/egraphs-good/egg
+
+Introduces an efficient e-graph library that compactly maintains many equivalent expressions and supports rule-based transformations and cost-based extraction.
+
+Relevance: HyperObject representation, symbolic expression transformation, and managing large spaces of equivalent computational structures.
+
+3. DreamCoder: Growing Generalizable, Interpretable Knowledge with Wake-Sleep Bayesian Program Learning (2023)
+
+Authors: Ellis et al.
+
+Paper: https://arxiv.org/abs/2006.08381
+
+Combines neural guidance with symbolic program synthesis. The system learns reusable abstractions, progressively building a library of concepts for solving increasingly complex problems.
+
+Relevance: Hybrid neural-symbolic AI, compositional reasoning, and learning reusable computational structures.
+
+4. Symbolic Model Checking: 10²⁰ States and Beyond (1992)
+
+Authors: Burch, Clarke, McMillan, Dill, Hwang
+
+Paper: https://doi.org/10.1016/0890-5401(92)90017-A
+
+Demonstrates how enormous state spaces can be represented symbolically using Binary Decision Diagrams rather than explicitly enumerating individual states.
+
+Relevance: Separation of representable possibility spaces from explicitly stored states, and symbolic reasoning over large state spaces.
+
+5. A Generic Lazy Evaluation Scheme for Exact Geometric Computations (2011)
+
+Authors: Pion, Fabri
+
+Paper: https://doi.org/10.1016/j.scico.2010.09.003
+
+Presents a lazy evaluation framework that delays expensive exact computations until they become necessary. Uses directed acyclic graphs and approximate arithmetic to avoid unnecessary work.
+
+Relevance: Selective Materialization, deferred computation, and on-demand evaluation of computational structures.
+
+6. Algorithmics on SLP-Compressed Strings: A Survey (2012)
+
+Author: Markus Lohrey
+
+Paper: https://doi.org/10.1515/gcc-2012-0016
+
+PDF: https://www.uni-siegen.de/fb12/ti/veroeffentlichungen/12-survey.pdf
+
+Surveys algorithms operating directly on strings compressed through Straight-Line Programs (SLPs). Repeated structures can be represented compactly, and certain queries can be performed without fully decompressing the data.
+
+Relevance: Recursive-expression compression, structural reuse, and algorithms operating directly on compressed representations.
+
+Relationship to the Proposed Architecture
+
+These studies establish that several underlying principles already exist:
+
+Extremely large values can sometimes be manipulated through compressed representations.
+
+Expression graphs can represent and transform large families of equivalent expressions.
+
+Large state spaces can be represented symbolically rather than enumerated.
+
+Expensive computations can be deferred until required.
+
+Neural and symbolic systems can cooperate in structured reasoning.
+
+The proposed Hyperoperation-Native Computing for AI concept explores combining these principles into a unified computational architecture built around recursive structures, hyperoperations, and selective materialization.
+
+Open question: Whether this combination provides computational advantages over existing symbolic, compressed, or neural-symbolic architectures remains to be demonstrated.
+
+The intended contribution is therefore not the independent invention of these underlying techniques, but the exploration of their integration into a computational model for AI.
