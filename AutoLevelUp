@@ -52,31 +52,683 @@ I'm still trying to figure out how much cleanup is enough before I feel comforta
 
 ---
 
-### R12-6. Public Repository Separation & Refactoring to Community Conventions
+# AutoLevel 리팩토링 플랜 (R12-6)
 
-To be carried out after the `1.0.0` release. The code should be made readable and aligned with community conventions, with as much of the refactoring as possible done by me. Current assessments, levels of evidence, and task order follow the final research findings. Individual research documents will be retained as reference material.
+| 항목 | 내용 |
+|---|---|
+| 기준 | 모드 `1.0.0`, 코드 `29a9cb7`, 게임 `2.7.0x` |
+| 규칙 | [docs/code-guidelines.md](docs/code-guidelines.md) — 이 플랜은 가이드라인의 "어긋남"을 고치는 순서와 방법이다 |
+| 순서 근거 | [findings/R12-6-final.md](findings/R12-6-final.md) §6 |
+| 상태 | 계획. 각 Phase는 시작 전에 사용자 확인을 받는다. 이 문서는 구현 · 커밋 · 공개를 승인하지 않는다 |
+| 진행 기록 | Phase 체크박스는 이 문서에서 관리한다. Phase 완료 요약과 확인 결과는 `devplan.md` R12-6 항목과 확인 절차 표에 남긴다 |
 
-There are three goals, in priority order (decision made October 9, 2026). Any alternative that conflicts with a higher-priority goal will be rejected.
+## 0. 원칙
 
-1. Do not break users' save files or games.
-2. Follow community coding practices to improve compatibility with other mods, maintainability, and ease of comparing implementations.
-3. Once the first two goals are satisfied, refactor the code into a human-readable form and publish it.
+1. 목표 순서는 ① 세이브 · 게임 안전 → ② 커뮤니티 관례 · 호환 · 유지보수 → ③ 공개 가독성이다. 뒤 목표를 위해 앞 목표를 해치는 변경은 하지 않는다.
+2. 커밋 하나에는 한 종류의 변경만 넣는다. 동작 변경 · 이름 변경 · 파일 이동 · 주석 · 빌드 설정을 섞지 않는다.
+3. 동작 중립 단계는 "중립"을 측정으로 증명한다. 패치 목록(Phase 0의 도구), 전체 테스트 수와 결과, CompatTests 출력이 전후 같아야 완료다.
+4. 동작 변경 단계(Phase 1 · 2 · 8, 그리고 Phase 7에서 예외 · 로그 경로를 바꾸는 커밋)는 실패 경로 · 시점 · 로그로 범위를 좁히고, 바뀌는 동작을 계약 문서에 같은 커밋에서 적는다.
+5. 판정은 코드 · IL · 자동 검사(V0~V3)로 먼저 한다. 인게임 확인(V4)은 코드로 판정할 수 없는 항목만 두고, 사본 세이브에서 한다. V4가 끝나지 않은 동작 변경은 채택하지 않는다.
+6. 새 장치를 만들기 전에 기존 파일 · 테스트 · 하네스를 넓힌다. 이 플랜이 더하는 도구는 CompatTests의 패치 목록 모드 하나와 기존 소스 스캔 테스트의 주석 검사뿐이다. 헬퍼 탐지 스캔과 분석기 실행은 일회성이며 커밋하지 않는다.
+7. 사용자 보고 수정(`1.0.x`)이 들어오면 main에 먼저 넣는다. 진행 중인 Phase 브랜치는 그 뒤에 main을 따라간다.
+8. 주석 전환(Phase 10)은 코드 형태를 바꾸는 단계(Phase 4~9)가 끝난 뒤 한다. 지우거나 다시 쓸 코드의 주석을 옮기지 않기 위해서다.
+9. 각 단계의 문서 갱신은 같은 작업에서 한다: `docs/code-guidelines.md`의 적용 위치(어긋남 → 맞음), `structure.md`, 해당 계약 문서, `devplan.md`, `autolevel_ledger.html`. 과거 기록 문서(findings · handoffs · archive)는 고치지 않는다.
 
-- [ ] Decide on the license and whether to include `catalog/generated/`.
-- [x] Consolidate research documents — Record final conclusions, verification limitations, and task priorities by goal in `findings/R12-6-final.md`. Preserve the five existing research documents without modifying or deleting them.
-- [x] Incorporate research review findings and additional safety precedents — Final research §6. Reproduced isolation of leftover patches after initialization failure, added a ToyBox first-load failure counterexample, and expanded samples involving companion level changes. JSON adoption remains undecided; A01/V05 references and goal-based task ordering have been consolidated. No product code changes or real save-game validation performed.
-- [x] Investigate collaboration conventions in repositories belonging to modders from the discussions being studied — Results documented. Compared selected files from nine pinned commits by five authors. Examined state ownership, API access, UMM decisions, initialization failure cleanup, and candidates for improving build and logging practices. Added Vek17 findings covering TTT shared foundations, Runtime provenance, UnitPart, helper side effects, and save migration. Source repositories for the remaining participants could not be linked. No implementation changes made.
-- [x] Research replacement approaches and existing mods — Report completed. Investigated candidates for migrating to per-save storage, isolated tests of standard JSON parsers (30 outputs and 8 rejection cases each on net10 and net481), and compared two directly similar mods. No changes applied to the product and no actual save migration performed.
-- [x] Revisit save safety, existing helpers, and utility-mod conventions — Results documented. Reproduced cases involving removal of Gestalt corrections and missing-GUID isolation. Examined boundaries for restoring original data blocks, backup scope, and existing API/JSON approaches. Actual removal, resaving, and reloading tests remain incomplete.
-- [x] Examine UI, settings, and build structures in utility-style mods (ToyBox, BubbleBuffs, and ModMenu). Follow-up research C01–C06 found community precedents for UMM windows and multiple patches within a single file. ModMenu is an optional approach for settings toggles. The final implementation strategy for file separation and library adoption remains undecided.
-- [x] Incorporate final research review findings — Established §6 as the single reference point, separated policies for keeping versus removing the mod, documented evidence concerning vanilla respec, and defined conditions for matching Python/C# decisions. Verified five related links, references to preserved materials, and `git diff --check`. No changes to product code, save files, or public documentation.
-- [ ] Without waiting for further validation, remove the English “Saves still load” claim and its equivalent Korean guarantee from the local documentation source and public mod page, then confirm that the changes are reflected.
-- [ ] Plan and verify safety tasks from final research §6 first — Initialization failure recovery; an original-block restoration policy that distinguishes guards while the mod remains installed from the saved-data state after removal; and boundaries involving removal, save migration, and vanilla respec.
-- [ ] Create a public snapshot without commit history and exclude internal records identified in final research §5. Handle game-extracted assets according to the final decision on publication scope.
-- [ ] Bring the repository root in line with community conventions — `<ModId>.sln`, `LICENSE`, `README.md` (requirements, installation, building, catalog generation, and test execution), `Repository.json`, `CHANGELOG`, `.gitignore` (`/GamePath.props`), and `.gitattributes`.
-- [ ] Organize the public build entry points — `GamePath.props`, game DLL references, required Publicizer, explicit `Deploy` target, and zip packaging. Ensure the project can be built without relying on ignored personal environment files.
-- [ ] Organize the code by responsibility — Thin Harmony patch entry points, feature-specific logic, optional mod adapters, and shared infrastructure. Related patches may remain together. Evaluate helpers based on their semantics and side effects before retaining, reducing, or replacing them. Preserve the separation of Core and tests.
-- [ ] Replace internal document-number references in code comments with a one-line explanation of the reasoning.
-- [ ] Align uninstall instructions with what has actually been verified — Distinguish removing AutoLevel from removing external content mods; account for dependencies on Gestalt corrections; separately back up actual save files and original build files; and validate using copies.
+## 1. 현황
 
-**Verification:** From a clean clone, generate the catalog → build → run C# and Python tests and `CompatTests`. Record whether the results match those obtained before refactoring.
+2026-10-10 코드 기준 측정값이다. Phase 0에서 다시 측정해 기준선으로 고정한다.
+
+| 항목 | 값 |
+|---|---|
+| C# 프로젝트 | `mod/AutoLevel`(net481, 파일 36 = 루트 10 · `Planner/` 26), `mod/AutoLevel.Core`(링크 소스 32, 게임 비의존), `mod/AutoLevel.Tests`(net10 xunit, 32파일), `mod/AutoLevel.CompatTests`(net481 실행 파일 1) |
+| 솔루션 · 루트 공개 파일 | `.sln` · `LICENSE` · `README.md` · `Repository.json` · `CHANGELOG` · `.gitattributes` 없음 |
+| 빌드 입력 | `work/env.ps1`의 `WOTR_ASSEMBLY_DLL` 필수(`AutoLevel.csproj:16,37`), 릴리스 설정 `AUTOLEVEL_AUTHOR` · `AUTOLEVEL_HOMEPAGE_URL`(패키지에 필수). CompatTests도 실행 시 `WOTR_ASSEMBLY_DLL`을 읽는다(`Program.cs:7`) |
+| Harmony 패치 클래스 | 47개(부록 A). `{Type}_{Method}_Patch` 형식 0개, 문자열 대상 17개, `TargetMethod(s)` 4개 |
+| Harmony ID | `AutoLevel`(`Main.cs:28`), `AutoLevel.ToyBoxGestalt`(`ToyBoxGestalt.cs:146`, ToyBox 탐지 때 지연 적용 `:80`) |
+| reflection | `mod/AutoLevel` 14파일. 고정 게임 API 대상과 유지 대상 분류는 부록 B |
+| 주석 | C# 101파일 · 23,813줄 중 주석 줄 2,200(XML 1,932), 한글 포함 1,556, 작업 · 리뷰 번호 포함 218. Python 105파일 중 46파일 220줄. csproj · props의 XML 주석도 한국어 |
+| CompatTests 이름 의존 | `GetNestedType` 문자열 조회 13줄 중 패치 클래스 이름 10곳(부록 C), `cref` 11곳 |
+| 초기화 실패 | `Main.cs:38-41`이 로그 뒤 `false`만 돌려주고 패치 · 콜백을 남긴다(R12-6-final §2.1 재현) |
+| 헬퍼 | 같은 본문 중복(`Safe` 2 · `Tag` 2 · `Ms` 2), 전달만 하는 메서드 4, 제품에서 호출 없이 테스트만 쓰는 공개 메서드 2, 같은 이름 다른 의미의 이름 · 표시 헬퍼 다수(Phase 5 표) |
+| 로그 · 예외 | `Log.Error` 73곳(예외 인자 없음 28), `catch` 95곳 중 빈 블록 · 바로 반환 14곳 |
+| 정적 상태 | 정적 가변 필드 121개(`PlannerEditor` 23 · `LevelUpSession` 16 · `ToyBoxGestalt` 10 · `PlannerEditorCustom` 10 · `PlannerLibrary` 9 등) |
+
+## 2. 전체 순서
+
+| Phase | 내용 | 목표 | 동작 | 가이드라인 |
+|---|---|---|---|---|
+| 0 | 기준선 · 패치 목록 도구 | 전체 | 없음 | — |
+| 1 | 초기화 실패 정리 | ① | 실패 경로만 | A2 |
+| 2 | `LoadPackTOC` 지연 단계 검토 | ① · ② | 실행 시점 | A4 · B7 |
+| 3 | 빌드 진입점 · 솔루션 · Publicizer 도입 | ② · ③ | 없음(빌드만) | A7 · A8 · A9 |
+| 4 | 패치 이름 · 중첩 · `nameof` · 폴더 | ② | 없음 | A5 · A6 |
+| 5 | 헬퍼 정리 — 쓰이지 않는 것 지움 · 중복 합침 · 게임/BCL API로 바꿈 | ② | 없음 | A7 · B11 |
+| 6 | 문자열 필드 접근 축소 | ② | 없음(같은 결과) | A7 |
+| 7 | 가이드라인 적합성 점검 — 규칙 전수 대조와 남은 어긋남 수정 | ① · ② | 로그 · 예외 경로(필요한 곳만) | A11 · A14 · A16 · B1 · B2 · B6 · B7 · B11 |
+| 8 | `ManualOrder` 선택 실패 기록 · 재정렬 전제 감사 | ② | 로그만 | B3 · B4 · B10 |
+| 9 | UMM 활성 판정 | ① 후보 | 판정 경로 | A13 |
+| 10 | 주석 영어 · 한국어 병기 | ② · ③ | 없음 | A15 |
+| 11 | 공개 준비 · 스냅샷 | ③ | 없음 | A10 |
+
+의존 관계:
+
+- Phase 1이 Phase 2의 전제다. 새 접미 패치도 Phase 1의 정리 대상이어야 한다.
+- Phase 3의 Publicizer 도입이 Phase 4-2(`nameof`) · Phase 6의 전제다.
+- Phase 4 → 5 → 6 → 7 순서로 한다. 이름 · 위치가 정해진 뒤 헬퍼를 정리하고, 헬퍼가 정리된 뒤 필드 접근을 바꾸고, 코드 형태가 정해진 뒤 규칙 전체를 대조한다.
+- Phase 10은 Phase 4~9가 끝난 뒤 하고, 결정 D3(공개 문서 범위)이 전제다.
+- Phase 9는 조건부라 순서에서 건너뛸 수 있다. 나중에 열리면 새 주석은 A15 형식으로 쓴다.
+- Phase 11이 마지막이다.
+
+### 2.1 이 플랜 밖이지만 순서에 영향을 주는 작업
+
+| 작업 | 근거 | 이 플랜과의 관계 |
+|---|---|---|
+| 원본 블록 복귀 정책(설치 유지 가드 · 제거 시 0레벨 블록 보존) | R12-6-final §2.2 · §6-2 | `FeatureListPatcher`를 바꾼다. 목표 ①이므로 코드가 준비되면 다음 기계적 Phase(4 · 5 · 10)보다 먼저 넣는다. 같은 파일을 두 작업이 동시에 고치지 않는다 |
+| 게슈탈트 · 외부 참조 · 저장 이전 판단 | §2.3 · §2.4 · §6-3 | `GestaltPlans` · `ToyBoxGestalt` · `CustomPlans`. 위와 같은 규칙 |
+| 리스펙 출처 · 제거 안내 · 백업 | §2.5 · §6-4 | 문서 · 안내 작업이라 코드 Phase와 겹치지 않는다 |
+| JSON 파서 선택 | §4.3 · §6-7 | Phase 5의 JSON 값 헬퍼 합치기는 이 결정을 기다린다. 파서 교체는 Phase 6 뒤 별도 단계로 넣고, Python/C# 판정 일치가 조건이다 |
+| Nexus 제거 안내 반영 · 제거 안내 범위 | devplan R12-6 | 문서 작업 |
+
+### 2.2 사용자 결정
+
+| 번호 | 결정 | 필요한 시점 | 권고 |
+|---|---|---|---|
+| D1 | 라이선스 | Phase 11 전 | — |
+| D2 | `catalog/generated/`(게임 추출물) 공개 포함 | Phase 3-5 전(깨끗한 clone 검증 방식이 달라진다) | — |
+| D3 | 공개 문서 범위 — 계약 문서(`mod/*-contract.md` · `buildfile/**/*-contract.md` · `catalog/schema/catalog-contract.md`) 포함 여부, `docs/gates` 제외 | Phase 10 전 | 계약 문서는 포함, 게이트 · 조사 · 인계 · 리뷰 문서는 제외 |
+| D4 | 폴더 이동 때 네임스페이스 유지 | Phase 4 전 | 유지(`AutoLevel` · `AutoLevel.Planner`). 바꾸면 CompatTests의 `GetType` 문자열과 로그 · 문서가 함께 바뀐다 |
+| D5 | Phase 4 · 5 · 10을 브랜치에서 할지 | Phase 4 전 | 브랜치. Phase마다 하나, 완료 검증 뒤 main에 병합 |
+| D6 | `Info.json`의 `Author` · `HomePage` · `Repository`를 저장소에 둘지 | Phase 11 전 | 현재처럼 빌드 때 주입하고, `Repository`만 공개 저장소 주소로 둔다 |
+| D7 | `LoadPackTOC` 채택 | Phase 2 결과 | V4까지 통과하면 채택 |
+| D8 | 리팩토링 결과의 릴리스 버전 | Phase 9 뒤 | 동작 변경(Phase 1 · 2 · 7 · 8)이 있으므로 `1.1.0`. 동작 중립 단계만으로는 릴리스하지 않는다 |
+
+## 3. Phase 0 — 기준선과 패치 목록 도구
+
+목적: 뒤 Phase들이 "동작이 그대로다"를 같은 방법으로 증명할 수 있게 한다.
+
+### 0-1. 기준선 기록
+
+- [ ] 아래 명령을 실행해 수 · 결과 · 경고 수를 `devplan.md` 확인 절차 표에 기록한다. 출력 원본은 `work/r126-refactor/baseline/`(git 제외)에 둔다.
+
+```powershell
+. .\work\env.ps1
+dotnet test mod/AutoLevel.Tests --nologo
+python tools/catalog-builder.tests/run_tests.py
+python buildfile/tests/run_tests.py
+python buildfile/schema/validate.py --examples
+python buildfile/convert_build.py --examples
+dotnet build mod/AutoLevel -c Release
+dotnet build mod/AutoLevel -c Release -p:DevTools=true
+dotnet build mod/AutoLevel.CompatTests -c Release
+mod/AutoLevel.CompatTests/bin/Release/net481/AutoLevel.CompatTests.exe
+mod/AutoLevel.CompatTests/bin/Release/net481/AutoLevel.CompatTests.exe --without-toybox
+```
+
+- [ ] `AutoLevel.dll`의 외부 멤버 참조 목록(MemberRef · TypeRef)을 덤프해 저장한다. Phase 3에서 Publicizer 도입 전후 비교에 쓴다.
+
+### 0-2. 패치 목록 모드 (CompatTests 확장)
+
+- [ ] `AutoLevel.CompatTests`에 `--patch-manifest` 인자를 더한다. 패치를 실제로 적용하지 않고 읽기만 하므로 CLR 격리 실행에서 Unity 메서드도 다룰 수 있다.
+  - `AutoLevel.dll`의 모든 타입(중첩 포함)에서 `HarmonyPatch` attribute를 가진 클래스를 찾는다.
+  - 대상 메서드는 클래스 · 메서드 attribute를 합쳐 해석한다. `TargetMethod` · `TargetMethods`가 있으면 그 정적 메서드를 호출해 얻는다.
+  - 패치 메서드마다 한 줄을 출력한다: `대상 타입::메서드(매개변수 타입)` · 종류(Prefix · Postfix · Finalizer · Transpiler) · priority · before · after · 선언 클래스 전체 이름.
+  - 두 형태를 출력한다. 전체 형태(선언 클래스 포함)와 중립 형태(선언 클래스 제외)이며, 둘 다 정렬한다.
+- [ ] `ToyBoxGestalt.PatchToyBox`의 동적 패치 목록(`:134-142`의 `Add` 9건)은 attribute가 아니므로 manifest에 "동적" 구역으로 정적 목록을 함께 적는다.
+- [ ] 기준선 manifest를 저장한다. 47개 클래스와 클래스별 패치 메서드 수가 부록 A와 맞는지 확인한다.
+
+완료 조건: 기준선 수치와 manifest가 기록돼 있고, 같은 커밋에서 manifest를 두 번 뽑아도 바이트가 같다.
+
+커밋: `test: R12-6 — CompatTests 패치 목록 모드`(도구) · 기준선 기록은 devplan만.
+
+## 4. Phase 1 — 초기화 실패 정리 (A2)
+
+목적: `Load`가 실패하면 AutoLevel이 남긴 패치와 콜백이 하나도 남지 않게 한다.
+
+### 1-1. 설계
+
+`Main.Load`의 단계와 실패 시 정리 대상:
+
+| 단계 | 현재 코드 | 실패 시 정리 |
+|---|---|---|
+| 설정 읽기 | `ModSettings.Load<Settings>` | 패치 없음, 콜백 없음 |
+| 패치 | `new Harmony(Info.Id).PatchAll` | 이 ID의 패치 전부(부분 적용 포함) |
+| 번역 읽기 | `PlannerLocale.Load` | 위 + |
+| UMM 콜백 | `OnShowGUI` · `OnHideGUI` · `OnGUI` · `OnUpdate` · `OnSaveGUI` | 위 + 연결한 콜백을 `null`로 |
+| 시작 로그 | `Log.Info` | 위와 같음 |
+
+- [ ] `catch`에서 다음 순서로 정리한다.
+  1. `new Harmony(modEntry.Info.Id).UnpatchAll(modEntry.Info.Id)`
+  2. ToyBox 어댑터 ID: `UnpatchAll("AutoLevel.ToyBoxGestalt")`. `PatchToyBox`는 `Load` 안에서 호출되지 않지만(`ToyBoxGestalt.cs:80`의 지연 적용), ID 기준 해제는 적용 전이어도 안전하다. 어댑터 ID 문자열은 `ToyBoxGestalt`의 상수로 옮겨 두 곳이 같은 값을 쓴다.
+  3. 다섯 콜백을 `null`로 되돌린다.
+  4. 실패한 단계 이름과 원본 예외를 `Log.Error`로 남긴다(A11).
+  5. `false`를 돌려준다.
+- [ ] 정리 자체가 예외를 내면 그 예외를 로그에 덧붙이고 원래 실패를 유지한다. 정리 중 예외로 `Load`가 던지지 않게 한다.
+- [ ] 인자 없는 `UnpatchAll()`을 쓰지 않는다. 다른 모드 패치는 건드리지 않는다.
+- [ ] 정리는 `Load` 안에서 끝낸다. 정상 실행 중 Blueprint 변경을 되돌리는 것과 섞지 않는다(R12-6-final §2.1).
+
+### 1-2. 회귀 테스트 (CompatTests 확장)
+
+R12-6-final §6-1의 "단계별 실패 주입 · 정식 회귀 테스트" 조건이다. `work/r126-failure/`(git 제외) 하네스를 정식 검사로 옮긴다.
+
+- [ ] CompatTests에 실패 주입 시나리오를 더한다.
+  - UMM `ModEntry`를 reflection으로 만든다. `Info.Id`는 탐침 ID(`AutoLevel.FailureProbe`)이고, `Path`는 임시 폴더다.
+  - `Log.Info` · `Warn` · `Error`는 기존 `LogStub` 방식으로 막는다. CLR에서는 `UnityEngine.Debug`를 호출할 수 없다.
+  - 다른 모드 역할의 탐침 패치(`AutoLevel.OtherModProbe`)를 AutoLevel 패치 대상 하나에 미리 건다.
+  - 주입 지점 세 곳을 별도 Harmony ID(`AutoLevel.FailureInjector`)의 접두로 던지게 한다: 설정 읽기, `PlannerLocale.Load`, 콜백 연결 직전(`PlannerWindow` 정적 초기화 등 실제 호출 지점 중 하나).
+  - `PatchAll` 도중 실패: `PatchClassProcessor.Patch`에 특정 클래스일 때 던지게 하는 주입을 시도한다. CLR에서 불가능하면 그 사유를 기록하고 앞뒤 지점으로 대신한다.
+- [ ] 판정:
+  - `Load == false`.
+  - manifest의 모든 대상에서 `Harmony.GetPatchInfo(original).Owners`에 탐침 ID가 없다.
+  - 다른 모드 탐침 패치는 남아 있다.
+  - 다섯 콜백이 `null`이다.
+  - 주입 없는 정상 실행에서는 모든 패치가 적용되고 콜백이 연결된다.
+- [ ] 각 시나리오 뒤 탐침 · 주입 ID를 모두 해제해 다음 시나리오에 영향이 없게 한다.
+
+### 1-3. 확인과 문서
+
+- [ ] Phase 0 기준선 전체 재실행. 정상 경로 manifest는 동일하다.
+- [ ] `mod/game-mode-contract.md` §6 로그에 실패 줄을 적는다. `structure.md` `Main.cs` 행, 가이드라인 A2 적용 위치를 "맞음"으로 바꾼다.
+- [ ] 인게임 확인은 하지 않는다. 실패 경로는 V3로 판정한다.
+
+완료 조건: 세 주입 지점 전부 PASS, 정상 경로 manifest와 기준선 동일.
+
+커밋: `fix: R12-6 — 초기화 실패 시 자기 Harmony 패치 · UMM 콜백 정리`. 테스트와 코드를 같은 커밋에 둔다.
+
+되돌림: 커밋 하나 revert.
+
+## 5. Phase 2 — `LoadPackTOC` 지연 단계 검토 (A4)
+
+목적: 다른 모드 결과를 읽는 Blueprint 작업을 모드 목록(`HarmonyAfter`) 없이 모든 `Init` 접미 뒤로 보낸다. 결과는 채택 또는 기각이다.
+
+### 2-1. 이미 확인한 것 (V1)
+
+- `StartGameLoader::LoadPackTOC` 본문은 `BlueprintsCache::Init()` 호출 뒤 `ret`이다.
+- `Init`을 부르는 곳은 `LoadPackTOC` 하나, `LoadPackTOC`를 부르는 곳은 `GameStarter.<StartGameCoroutine>d__28::MoveNext` 하나다.
+- 그 코루틴에서 `LoadPackTOC` 뒤에는 `LoadAllJson`(조건부) · 폰트 · UI · DLC · 현지화가 오고, 세이브 로드는 그 뒤다.
+
+### 2-2. 영향 조사 (V0 · V1)
+
+- [ ] `BlueprintsCache.Init`과 `LoadPackTOC` 사이에서 AutoLevel 결과에 기대는 코드를 찾는다. 본문이 `Init` → `ret`이므로 엔진 쪽은 없다는 것을 확인하고, AutoLevel 내부 소비자(`ContentOrigin` 초기화 · 플래너 정적 데이터)의 첫 사용 시점을 grep한다.
+- [ ] 조사 모드 중 `LoadPackTOC` 접미에서 동료 FeatureList · `AddClassLevels`를 읽는 코드가 있는지 확인한다(TTT-Core `AfterBlueprintCachePatches` 소비자, COP `ConfigureDelayedBlueprints`, PP). 있으면 지금은 AutoLevel 결과를 보고, 이동 뒤에는 순서에 따라 바닐라를 볼 수 있다.
+- [ ] `LoadAllJson`(조건부) 경로가 Blueprint를 다시 읽어 AutoLevel 교체를 덮을 수 있는지 IL로 확인한다.
+
+### 2-3. 구현안
+
+- [ ] `BlueprintsCacheInitPatch`의 대상을 `StartGameLoader.LoadPackTOC`로 바꾼다. `Priority.Last`와 `_done` 가드를 유지하고 `HarmonyAfter` 4개를 지운다.
+- [ ] 재교체(game-mode-contract §4) 경로는 바뀌지 않는다.
+- [ ] 보장 문장: "모든 `BlueprintsCache.Init` 접미 뒤. 다른 모드의 `LoadPackTOC` 접미와의 상대 순서는 보장하지 않는다."
+
+### 2-4. 검증
+
+- [ ] V3: manifest에서 대상이 바뀐 한 줄과 사라진 `after` 4개 외에는 차이가 없다. 전체 테스트 · CompatTests가 동일하다.
+- [ ] V4(채택 조건, 사본 세이브): AutoLevel만 설치한 상태와 `Init` 접미에서 Blueprint를 바꾸는 모드 하나를 함께 설치한 상태에서 다음을 본다.
+  - `Player.log`의 `N of M build(s) applied`가 한 번만 찍힌다.
+  - 새 게임 시작 · 세이브 불러오기 · 리스펙 경로에서 빌드가 적용된다.
+  - 다른 모드 콘텐츠의 `P-305` · 검사 ② 결과가 이동 전과 같다.
+
+### 2-5. 결정
+
+- [ ] 채택(D7): game-mode-contract §3의 첫 문단과 "콘텐츠 모드 호환" 마지막 문장을 바꾼다. 가이드라인 A3 · A4를 합쳐 A4를 `필수`로 올린다. `structure.md` `Patches.cs` 행을 고친다.
+- [ ] 기각: 이유를 `docs/archive/code-guidelines_archive.md`에 적고 가이드라인 A4를 지운다.
+
+커밋: `feat: R12-6 — Blueprint 작업을 LoadPackTOC 지연 단계로`(채택 시). V4 전에는 브랜치에만 둔다.
+
+## 6. Phase 3 — 빌드 진입점 · 솔루션 · Publicizer 도입
+
+목적: 무시된 개인 파일 없이 빌드되게 하고, 이후 단계가 쓸 Publicizer를 코드 변경 없이 들인다.
+
+### 3-1. 솔루션
+
+- [ ] 루트에 `AutoLevel.sln`을 만들고 `mod/AutoLevel` · `mod/AutoLevel.Tests` · `mod/AutoLevel.CompatTests`를 넣는다. `AutoLevel.Core`는 링크 소스이므로 프로젝트가 아니다.
+
+### 3-2. `GamePath.props`
+
+- [ ] 루트 `GamePath.props`(무시 파일)에 `WrathInstallDir`를 둔다. `mod/Directory.Build.props`가 `$(MSBuildThisFileDirectory)..\GamePath.props`를 있으면 import한다. `SolutionDir`에 기대지 않으므로 프로젝트 단독 빌드도 같은 값을 쓴다.
+- [ ] 게임 경로 결정 순서:
+  1. `GamePath.props`의 `WrathInstallDir`
+  2. 환경변수 `WOTR_ASSEMBLY_DLL`(현재 개발 흐름 유지)
+  3. 둘 다 없으면 `Player.log`의 `Mono path[0]`에서 찾아 `GamePath.props`를 생성(CasDragon · ToyBox 형태)
+  4. 실패하면 오류: 세 방법을 안내하는 한 줄
+- [ ] `WotrManaged`는 `$(WrathInstallDir)\Wrath_Data\Managed`에서 계산한다. 참조 목록은 그대로 둔다.
+- [ ] CompatTests 실행 파일도 같은 경로를 쓴다. csproj가 `WotrManaged`를 어셈블리 메타데이터로 넣고, `Program.cs`는 인자 · 환경변수가 없을 때 그 값을 쓴다.
+- [ ] `.gitignore`에 `/GamePath.props`를 더한다.
+- [ ] Python 도구의 입력(`WOTR_BLUEPRINTS_ZIP` 등)과 릴리스 설정(`AUTOLEVEL_AUTHOR` · `AUTOLEVEL_HOMEPAGE_URL`)은 `work/env.ps1`에 그대로 둔다. 모드 빌드만 `GamePath.props`로 옮긴다.
+- [ ] `Deploy` · `DeployReplay` · `Package`는 명시적 속성으로 유지한다. `AfterBuild` 자동 배포는 기본값이 아니다.
+
+### 3-3. Publicizer 도입 (코드 변경 없음)
+
+- [ ] `BepInEx.AssemblyPublicizer.MSBuild`를 정확한 버전으로 더한다(CasDragon · ToyBox와 같은 0.4.2를 기본으로 하고, 도입 시점의 안정 판과 비교해 고정). `PrivateAssets="all"`.
+- [ ] `Assembly-CSharp` 참조에만 `Publicize="true"`를 붙인다. 다른 Owlcat 어셈블리는 Phase 6에서 필요해질 때 붙인다.
+- [ ] 공개화된 참조로 컴파일하면 오버로드 선택이 바뀔 수 있다(비공개였던 더 구체적인 오버로드가 보이게 된다). Phase 0-1의 멤버 참조 목록을 다시 뽑아 전후가 같은지 비교한다. 다르면 그 호출을 명시적 형태로 고쳐 같게 만든다.
+- [ ] 이 단계에서는 소스의 reflection을 하나도 바꾸지 않는다.
+
+### 3-4. 문서
+
+- [ ] `mod/game-mode-contract.md` §7 빌드 명령, `structure.md` 실행 · 검증 명령, `배포방법.md`, `docs/stage3/env.example.ps1` 주석, `AGENTS.md`, `AutoLevel.csproj` 주석.
+
+### 3-5. 깨끗한 clone 검증
+
+- [ ] 임시 폴더에 clone하고 `GamePath.props`만 만든 뒤 `dotnet build AutoLevel.sln -c Release` · `dotnet test` · CompatTests를 실행한다.
+- [ ] `GamePath.props`도 환경변수도 없을 때 `Player.log`로 생성되는지, 그것도 없으면 안내 오류가 나는지 본다.
+- [ ] D2에 따라 카탈로그가 없는 clone이면 카탈로그가 필요한 테스트가 어떻게 되는지(건너뜀 · 실패) 기록한다.
+
+완료 조건: 멤버 참조 목록 · manifest · 전체 테스트가 기준선과 같고, 깨끗한 clone이 개인 파일 없이 빌드된다.
+
+커밋:
+1. `build: R12-6 — 솔루션 · GamePath.props`
+2. `build: R12-6 — Assembly-CSharp Publicizer(코드 변경 없음)`
+
+## 7. Phase 4 — 패치 이름 · 중첩 · `nameof` · 폴더 (A5 · A6)
+
+목적: 공개 전에 한 번, 패치 클래스를 커뮤니티 형식으로 맞춘다. 동작은 바뀌지 않는다. D5에 따라 브랜치에서 한다.
+
+### 4-1. 이름 변경과 중첩 (커밋 1)
+
+- [ ] 부록 A 표대로 47개 클래스의 이름을 바꾸고 감쌀 클래스 안에 중첩한다.
+  - 이미 기능 클래스 안에 있는 것: `BuildAutoLevel` · `BuildOrderGate` · `CustomPlans` · `FixedLevelPlans` · `PetPlans` · `ToyBoxGestalt`.
+  - 기존 기능 클래스로 옮기는 것: `ManualOrderHook` → `ManualOrder`, `SpellbookRoutingHook` → `SpellbookRouting`, `PlannerRespecFirstLevel` → `PlannerRespec`, `LevelUpSession*` 9개 → `LevelUpSession`, `Patches.cs` 3개 → `FeatureListPatcher`(불러오기 가드가 `FeatureListPatcher.IsGuarded`를 쓴다).
+  - 파일 이름으로 감쌀 클래스를 만드는 것: `ReplayHooks.cs`의 8개 → `ReplayHooks`, `PlanApplyScope` → `PlanApplyScope` 안에 `LevelUpController_ApplyLevelUpPlan_Patch`(상태 필드는 바깥 클래스로).
+  - 바꾸지 않는 것: 패치가 아닌 `BuildOrderGate` · `ToyBoxGestalt.Scope` · `ToyBoxGestalt.Binding` 등.
+- [ ] 여러 메서드를 대상으로 하는 `TargetMethods` 클래스는 `{Type}_{Purpose}_Patch`로 한다(`CharGenVM_NeedPhase_Patch` · `LevelUpController_FixedChoices_Patch`). 가이드라인 A5에 이 형식을 한 줄 더한다.
+- [ ] 같은 커밋에서 이름 참조를 모두 고친다.
+  - CompatTests의 패치 클래스 이름 조회 10곳(부록 C). 비패치 `Scope` · `BuildPointsTarget`은 그대로다.
+  - `cref` 11곳.
+  - 현재 규칙 문서의 클래스 이름: `structure.md`(`ManualOrderHook` · `PlanApplyScope` · `TricksterExclusion` 등), `mod/planner-contract.md`(`LevelUpSessionMythicUnlock` · `TricksterExclusion` · `CreationStatsHook`), `devplan.md`의 열린 항목, `docs/code-guidelines.md`(`BlueprintsCacheInitPatch` · `PlanApplyScope`).
+  - findings · handoffs · archive 같은 과거 기록 문서는 고치지 않는다.
+- [ ] 로그 문자열에 클래스 이름이 들어간 곳이 있는지 grep한다. 있으면 사용자 안내 로그 형식이 바뀌므로 그대로 두고 표에 적는다.
+
+### 4-2. 문자열 대상 → `nameof` (커밋 2)
+
+- [ ] 문자열 대상 17개를 `nameof(T.M)`으로 바꾼다. 비공개 멤버는 Phase 3의 Publicizer로 컴파일된다.
+- [ ] `TargetMethod(s)` 4개 중 단일 대상(`FixedLevelPlans`의 `LevelUp` · `AddLevel`)은 attribute 대상(`[HarmonyPatch(typeof(AddClassLevels), nameof(AddClassLevels.LevelUp), new[] { ... })]`)으로 바꾼다. 다중 대상 2개는 `TargetMethods`를 유지하고 이름만 `nameof`로 바꾼다.
+- [ ] Harmony 인자 주입(`___m_LevelUpController` · `___m_ApplyingPlan`)은 Harmony 관례이므로 그대로 둔다.
+
+### 4-3. 폴더 이동과 `Patches.cs` 해체 (커밋 3)
+
+- [ ] `git mv`로만 옮긴다. 이 커밋에는 내용 변경이 없다(4-1에서 `Patches.cs`의 클래스는 이미 `FeatureListPatcher`로 옮겨졌고, 빈 `Patches.cs`는 이 커밋에서 지운다).
+
+| 폴더 | 파일 |
+|---|---|
+| (루트) | `Main.cs` |
+| `Blueprints/` | `FeatureListPatcher.cs`(Init 패치 · 불러오기 가드 포함) · `ComponentFactory.cs` · `UnitDeityPatcher.cs` · `GameBlueprintLookup.cs` |
+| `LevelUp/` | `ManualOrder.cs` · `SpellbookRouting.cs` · `PlanApplyScope.cs` |
+| `Compatibility/` | `ToyBoxGestalt.cs` |
+| `Planner/` | 현행 |
+
+- [ ] D4에 따라 네임스페이스는 바꾸지 않는다.
+- [ ] 가이드라인 A6 표에서 불러오기 가드를 `Blueprints/`로 고친다. `structure.md`의 `mod/` 표 경로를 새 경로로 고친다.
+
+### 4-4. 검증
+
+- [ ] 커밋마다 manifest 중립 형태가 기준선과 같다. 전체 형태는 선언 클래스 이름만 다르며, 그 차이가 부록 A의 이전 이름 → 새 이름 대응과 정확히 일치한다(스크립트로 대응표를 적용해 비교).
+- [ ] 전체 테스트 · CompatTests(두 모드) 결과가 기준선과 같다.
+- [ ] `grep -rnw` 이전 이름 47개가 코드 · 현재 규칙 문서에서 0.
+- [ ] 멤버 참조 목록 비교: 4-2 뒤에는 `AccessTools.Method` 호출이 줄어든 것 외에 게임 멤버 참조 차이가 없다.
+
+완료 조건: 위 네 가지, 가이드라인 A5 · A6 "맞음".
+
+## 8. Phase 5 — 헬퍼 정리 (A7 · B11)
+
+목적: 쓰이지 않는 헬퍼를 지우고, 같은 일을 하는 헬퍼는 하나로 합치고, 게임 · Harmony · BCL에 같은 의미의 API가 있으면 그것을 쓴다. 동작은 바뀌지 않는다. 이름 · 위치가 정해진 Phase 4 뒤, 주석을 옮기는 Phase 10 전에 한다.
+
+### 5-1. 탐지
+
+- [ ] 쓰이지 않는 비공개 멤버 · 매개변수 · `using`: 분석기를 한 번 실행한다. 임시 `.editorconfig`에 IDE0051 · IDE0052 · IDE0060 · IDE0005를 warning으로 두고 `dotnet build mod/AutoLevel -c Release -p:EnforceCodeStyleInBuild=true`. 결과만 기록하고 임시 설정은 커밋하지 않는다.
+- [ ] 쓰이지 않는 internal · public 멤버: 분석기가 잡지 않으므로 이름 참조 스캔으로 찾는다. 제품 코드와 테스트를 따로 센다. Harmony 메서드(`Prefix` 등) · UMM 콜백 · reflection으로 부르는 이름(CompatTests 문자열)은 제외한다.
+- [ ] 중복: 같은 이름 · 같은 본문의 헬퍼, 다른 메서드를 그대로 부르기만 하는 전달 메서드.
+- [ ] 다시 구현한 것: 게임 API(`AssetGuid` · `ResourcesLibrary` · 참조 타입 · `LevelUpController`), Harmony(`AccessTools`), BCL(LINQ · `string` · `Path`)과 같은 일을 하는 헬퍼.
+
+### 5-2. 판정
+
+| 판정 | 조건 | 하는 일 |
+|---|---|---|
+| 지움 | 제품 · 테스트 어디서도 호출이 없거나, 다른 메서드를 그대로 부르기만 함 | 지우고 호출부가 원래 메서드를 부르게 한다 |
+| 합침 | 본문과 의미가 같은 헬퍼가 둘 이상 | 공유 계층 하나로 모은다. 게임 비의존이면 `AutoLevel.Core` |
+| 바꿈 | 게임 · Harmony · BCL에 같은 의미의 API가 있음 | 함수별 비교표(현재 → 대안 → 의미 · 부수효과 차이 → 판정)를 만든 뒤, 차이가 없을 때만 바꾼다(R12-6-final §4.2) |
+| 테스트로 | 제품에서 호출 없이 테스트만 쓰는 공개 메서드 | 테스트 지원 코드(`Support.cs`)로 옮기거나 테스트가 제품 API로 같은 일을 하게 한다 |
+| 유지 | 이름이 같아도 의미가 다르거나, 세이브 · 진단 계약을 담음 | 사유를 표에 남긴다 |
+
+### 5-3. 현재 확인된 후보 (2026-10-10 스캔)
+
+| 헬퍼 | 위치 | 판정 후보 |
+|---|---|---|
+| `Safe(Func<bool>)` | `ManualOrder.cs:157` · `Planner/CandidateInspector.cs:183` | 합침 — 본문이 같다. 예외를 삼키는 이유는 Phase 7-2에서 한 줄로 적는다 |
+| `Guid(SimpleBlueprint)` 전달 | `Planner/GameData.cs:301` · `Planner/LevelUpSession.cs:443` → `CandidateInspector.Guid` | 지움 — 호출부가 원래 메서드를 부른다 |
+| `PlannerRespec.UnitGuid` · `FindAll` 전달 | `Planner/PlannerRespec.cs:60` · `:51` → `CurrentUnitSnapshot.UnitGuid` · `CurrentCampaign.FindAll` | 지움 |
+| `Tag(LevelTrace)` | `AutoLevel.Core/ReplayJudge.cs:489` · `AutoLevel.Core/OriginalBuild.cs:90` | 합침 — `LevelTrace` 쪽 하나로 |
+| `Ms(long)` | `Planner/LeanCheck.cs:93` · `AutoLevel.Core/ReplayMetrics.cs:74` | 합침 — `ReplayMetrics` 하나로 |
+| `BuildEditor.AddChoice` · `SpellsAt` | `AutoLevel.Core/BuildEditor.cs:297` · `:304` | 테스트로 — 제품 호출 없음, 테스트 8곳만 사용 |
+| 이름 · 표시 헬퍼 `Name` | `ManualOrder.cs:155`(Blueprint 이름) · `Planner/GameData.cs:263`(현지화 표시명) · `Planner/MainPlans.cs:94`(Blueprint 이름) · `Planner/AppliedBuildTab.cs:278` | 판정 필요 — 표시명과 내부 이름은 의미가 다르다. 같은 의미끼리만 합친다 |
+| `CompanionName` | `Planner/GameData.cs:241` · `Planner/PlannerEditor.cs:1127` | 판정 필요 — 변형 선택 방식이 다르다 |
+| JSON 값 헬퍼 `Strings` · `Int` · `Array` | `AutoLevel.Core/BuildEditor.cs:629-638` · `BuildModel.cs:329-336` · `Converter.cs:106` | JSON 파서 결정(§2.1) 뒤 — 결정 전에는 `Json.cs` 확장 하나로 합치는 것만 |
+| `ComponentFactory.SetField` · `GetField`로 public 필드 대입 | `ComponentFactory.cs:27-57` | 바꿈 — 19곳 중 11곳은 원래 public 필드다(`AddClassLevels`의 `Levels` · `RaceStat` · `LevelsStat` · `Skills` · `Selections` · `DoNotApplyAutomatically`, `SelectionEntry`의 `IsParametrizedFeature` · `IsFeatureSelectMythicSpellbook` · `ParamSpellSchool` · `ParamWeaponCategory` · `Stat`). Publicizer 없이 지금 직접 대입한다. 나머지 비공개 8곳과 `Field` 헬퍼는 Phase 6 |
+| 자체 JSON 파서(`Json.cs`) | `AutoLevel.Core` | JSON 파서 결정 트랙 |
+
+이미 유지로 정한 것(R12-6-final §4.2): `GameBlueprintLookup.Get`(Core 검사 인터페이스의 게임 어댑터), `ComponentFactory.Ref`(존재 확인 뒤 참조 생성 — 조회 없는 GUID 참조와 다르다), `FeatureListPatcher`의 컴포넌트 이름 배정(세이브 계약), `EngineReplayer`(엔진을 쓰는 제품 고유 로직), `ToyBoxGestalt`(선택 어댑터). 커뮤니티 헬퍼(TTT-Core · BlueprintCore)는 의존으로 들이지 않고 코드도 복사하지 않는다(A17).
+
+5-1의 탐지 결과는 이 표에 행으로 더한다.
+
+### 5-4. 검증
+
+- [ ] 커밋마다 manifest · 전체 테스트 · CompatTests가 기준선과 같다.
+- [ ] 지우거나 합친 이름이 제품 · 테스트 · 현재 규칙 문서에서 grep 0.
+- [ ] 분석기 재실행에서 5-1의 경고가 0이거나, 남은 경고마다 유지 사유가 있다.
+
+커밋: 판정 종류마다 하나(지움 · 합침 · 테스트로 · 바꿈).
+
+완료 조건: 5-3 표의 모든 행에 판정과 결과가 있고, 가이드라인 B11의 "헬퍼를 바꿀 때 부수효과 대조"가 바꿈 행마다 비교표로 남아 있다.
+
+## 9. Phase 6 — 문자열 필드 접근 축소 (A7)
+
+목적: 고정 게임 API는 컴파일 시점에 검사되는 직접 접근으로 바꾼다. 결과는 같아야 한다.
+
+### 6-0. CLR 접근 검사 스파이크
+
+- [ ] 게임(Unity Mono)은 공개화된 참조로 비공개 멤버에 접근해도 막지 않는다(조사 모드들이 쓰는 방식). CompatTests는 .NET Framework CLR에서 실행되므로 접근 검사로 `FieldAccessException` · `MethodAccessException`이 날 수 있다.
+- [ ] `ComponentFactory` 한 필드만 직접 접근으로 바꾼 임시 빌드로 CompatTests를 실행해 확인한다.
+  - 문제없음 → 6-1로 진행.
+  - 예외 → CompatTests가 실제로 실행하는 경로를 목록으로 만들고, 그 경로의 멤버는 reflection을 유지하거나 CompatTests가 그 경로를 게임 밖에서 실행하지 않게 나눈다. 결과를 가이드라인 A7 예외에 적는다.
+
+### 6-1. 대상과 판정
+
+부록 B의 "직접 접근" 행만 바꾼다. 파일 군 하나가 커밋 하나다.
+
+| 순서 | 파일 | 바꿀 것 | 지킬 계약 |
+|---|---|---|---|
+| 1 | `ComponentFactory.cs` | 비공개 필드 8곳(`m_CharacterClass` · `m_Archetypes` · `m_SelectSpells` · `m_MemorizeSpells` · `m_Selection` · `m_Features` · `m_ParametrizedFeature` · `m_ParamObject`)과 `SetField` · `GetField` · `Field` 헬퍼. public 11곳은 Phase 5에서 이미 바뀐다 | 스키마 검증 · 오류 코드(`M-102`) · 원본 배열 복사 · 생성 결과 동일. 필드가 없을 때 지금은 `MissingFieldException`(`:84`)이고, 직접 접근도 JIT 때 같은 예외 형식이므로 잡는 위치가 같은지 확인한다 |
+| 2 | `ManualOrder.cs` · `Planner/EngineReplayer.cs` · `Planner/LevelUpSession.cs` | `GetSelectionItem` · `AddLevel` · `GetFeaturesSelectionHistory` · `ApplyStatsDistributionPreset` 호출, `Available` 백킹 필드(속성 setter로) | 반환값 · 예외 동일 |
+| 3 | `Planner/CustomPlans.cs` · `Planner/ReplayHooks.cs` | `FieldRefAccess` 4곳 | 같은 필드 |
+| 4 | `UnitDeityPatcher.cs` · `FeatureListPatcher.cs`(옛 `Patches.cs`의 `Owner`) · `Planner/CandidateInspector.cs` | `m_Facts` · `Owner` · `ContextData<IgnorePrerequisites>.s_CurrentIndex` | 같은 값 |
+
+유지(바꾸지 않음): `ContentOrigin`(인식 실패 시 기능 축소 계약, B6), `GameData` `StartingStatPoints`(필드 · 속성 버전 차이), `MainPlans` `NextObligatoryMythicClass`(없으면 경고 뒤 대체 경로) · `Settings`의 `Get`/`GetBlueprint`(동적 타입) · `:276` 필드 스캔, `ToyBoxGestalt` 전부(선택 모드). 유지하는 곳마다 사유 한 줄 주석을 단다(A7).
+
+### 6-2. 검증
+
+- [ ] 커밋마다 전체 테스트 · CompatTests · manifest 동일.
+- [ ] `ComponentFactory`(1번): `FeatureListPatcher`의 빌드별 로그 줄(`AddClassLevels <전> -> <후>`, 교체 블록 JSON)이 같은 `builds.json`에서 전후 같아야 한다. CLR에서 `AddClassLevels`를 만들 수 있으면 CompatTests로, 없으면 인게임 한 번 시작해 `Player.log`를 비교한다(V4, 사본 설치).
+- [ ] 멤버 참조 목록: 바꾼 곳만 reflection 호출이 직접 멤버 참조로 바뀌었는지 확인한다.
+
+완료 조건: 부록 B "직접 접근" 행 전부 완료, 유지 행에 사유 주석, 가이드라인 A7 "맞음".
+
+## 10. Phase 7 — 가이드라인 적합성 점검
+
+목적: 가이드라인의 모든 규칙을 코드와 하나씩 대조해, 다른 Phase가 다루지 않는 어긋남을 고친다. 끝나면 가이드라인의 적용 위치가 모두 "맞음"이거나 남은 Phase(8 · 9 · 10 · 11)를 가리킨다.
+
+### 7-1. 규칙별 담당
+
+| 규칙 | 현재 | 담당 |
+|---|---|---|
+| A1 진입점 · A3 Blueprint 시점 · A9 버전 고정 · A12 설정 | 맞음 | 7-6에서 검증 명령 재실행 |
+| A2 초기화 실패 | 어긋남 | Phase 1 |
+| A4 지연 단계 | 검토 후보 | Phase 2 |
+| A5 패치 클래스 · A6 폴더 | 어긋남 | Phase 4 |
+| A7 게임 API 접근 | 어긋남 | Phase 3 · 6 |
+| A8 빌드 진입점 | 어긋남 | Phase 3 |
+| A10 메타데이터 | 어긋남 | Phase 11 |
+| A11 로그 | 형식은 맞음, 내용 미점검 | 이 Phase 7-2 |
+| A13 다른 모드 활성 판정 | 검토 후보 | Phase 9 |
+| A14 상태 소유 | 저장 타입은 맞음, 정적 상태 미점검 | 이 Phase 7-3 |
+| A15 주석 | 어긋남 | Phase 10 |
+| A16 테스트 | 맞음 | 7-6 — 이 Phase에서 고친 경로의 테스트 |
+| B1 현재 Blueprint · 캐시 | 맞음, 캐시 미점검 | 이 Phase 7-4 |
+| B2 선택 위치 · B5 명시 선택 비움 · B8 직접 연동 | 맞음 | 7-6에서 재확인 |
+| B3 · B4 · B10 선택 판정 · 우선순위 · 관찰 로그 | 일부 어긋남 | Phase 8 |
+| B6 출처 판정 · reflection 실패 경로 | 일부 맞음 | 이 Phase 7-5 |
+| B7 모드 이름 분기 | 맞음 | Phase 2 · 7-6 |
+| B9 완전 재시작 · B12 근거 등급 | 절차 규칙 | 코드 대상 아님 |
+| B11 실패 격리 | 미점검 | Phase 5(헬퍼) · 이 Phase 7-2(예외 범위) |
+
+### 7-2. 로그와 예외 (A11 · B11)
+
+- [ ] `Log.Error` 73곳을 모두 본다. 실패한 작업, 대상(타입 · 메서드 또는 Blueprint 이름 · GUID), 원본 예외 세 가지가 있어야 한다. 예외 인자 없이 부르는 28곳은 예외가 없는 오류(검사 실패 등)인지 예외를 버린 것인지 가르고, 버린 것만 고친다.
+- [ ] 예외를 삼키는 `catch` 14곳(빈 블록 · 바로 반환)마다 이유를 정한다: 엔진 동작 흉내(`CanSelect` 예외를 선택 불가로), 선택 모드 탐지, 표시 문구 폴백 등. 이유가 있으면 그 자리에 한 줄로 적고, 없으면 로그를 더하거나 예외를 올린다.
+- [ ] 한 빌드 · 유닛의 실패가 다른 대상까지 멈추게 하는 `catch` 범위가 없는지 `FeatureListPatcher` · `EngineReplayer` · `PlannerStore` · `CustomPlans`에서 확인한다.
+
+### 7-3. 상태 소유 (A14)
+
+- [ ] 정적 가변 필드 121개를 소유자 · 수명으로 나눈다: 1회 가드, 불변 메타데이터 캐시, UMM 창 회차 상태(`PlannerEditor` 등), 호출 범위 상태, 유닛 · 컴포넌트 키 상태.
+- [ ] 호출 범위 상태(`ReplayRun.Current` · `CreatingUnit`, `LevelUpSession` 상태, `ToyBoxGestalt` 스코프)는 정상 · 취소 · 예외 · 중첩 종료에서 이전 값으로 돌아가는지 확인한다(R12-6-final §4.1). `finally` · `Finalizer` · 스코프 객체로 복원하지 않는 곳은 고친다.
+- [ ] 유닛 · 컴포넌트에 딸린 상태가 정적 `Dictionary` · `HashSet`에 강한 참조로 남으면 `ConditionalWeakTable`로 옮긴다.
+- [ ] 세이브에 새 타입을 쓰지 않는지 검증 명령을 다시 실행한다.
+
+### 7-4. 캐시 (B1)
+
+- [ ] 런타임 Blueprint 내용(후보 · 선행 조건 · 진행표)을 담는 정적 캐시를 열거하고, 생성 시점과 무효화 조건이 코드에 적혀 있는지 본다.
+- [ ] 프로세스 내내 유지되는 캐시(`ContentOrigin`의 판정 캐시 등)는 Blueprint 초기화가 끝난 뒤에만 채워지는지 확인한다.
+
+### 7-5. reflection 실패 경로 (B6 · A7)
+
+- [ ] Phase 6에서 유지한 reflection마다 대상을 못 찾으면 기능을 줄이고 로그를 남기는지 본다. `ContentOrigin`(`:47` 경고 · `:51` 오류)과 `MainPlans` `NextObligatoryMythicClass`(`:86` 경고)는 맞다. 나머지를 같은 형태로 맞춘다.
+
+### 7-6. 검증 명령과 테스트 (A1 · A9 · A16 · B2 · B5 · B7 · B8)
+
+- [ ] 가이드라인의 검증 명령을 모두 다시 실행해 결과를 기록한다.
+- [ ] 이 Phase에서 바뀐 로그 · 예외 · 복원 경로에 테스트가 있는지 본다. 게임 비의존이면 `AutoLevel.Tests`, 게임 타입이면 CompatTests.
+
+### 7-7. 결과
+
+- [ ] 가이드라인의 적용 위치를 갱신한다(어긋남 → 맞음, 담당 Phase 표기).
+- [ ] 규칙이 코드의 정당한 사정과 맞지 않으면 코드를 억지로 맞추지 않고, 규칙을 고치는 안을 따로 확인받는다.
+
+커밋: 7-2 · 7-3 · 7-4 · 7-5 각각. 예외를 올리거나 로그를 더해 동작이 바뀌는 커밋은 동작 변경으로 분리하고 계약 문서를 같이 고친다.
+
+완료 조건: 7-1 표에서 이 Phase가 담당하는 행이 모두 "맞음"이고, 나머지 행은 담당 Phase가 적혀 있다.
+
+## 11. Phase 8 — `ManualOrder` 선택 실패 기록 · 재정렬 전제 감사 (B3 · B4 · B10)
+
+### 8-1. 이력 선기록의 의미 (V1 먼저)
+
+- [ ] 엔진 `AddClassLevels.PerformSelections`가 이력(`selectionsHistory`)을 `SelectFeature` 전에 적는지, 실패해도 남기는지 IL로 확인한다.
+- [ ] 엔진과 같으면 `ManualOrder.cs:110`을 그대로 두고, "이력은 시도 기록이며 성공 표시가 아니다"를 game-mode-contract §4 선택 순서 ⑥에 적는다. 다르면 엔진과 같게 고치는 안을 따로 확인받는다.
+
+### 8-2. 실패 로그
+
+- [ ] `SelectFeature == false`를 세 곳에서 남긴다: 명시 선택(`:111`), 매개변수 선택(`:119`, 항목 없음 포함), 기본 선택(`:134`).
+- [ ] 형식은 기존 `:107` 줄을 따른다: `order: {유닛} {L/M 레벨} {선택창} -> {후보} rejected by the engine (priority {n}, {explicit|parameter|default}); the selection stays empty`. B10의 필드만 쓰고 원인을 단정하지 않는다.
+- [ ] 플래너 재생도 이 경로를 지나므로 로그 양을 확인한다. 같은 재생에서 같은 줄이 반복되면 기존 `:107` 줄과 같은 방식으로 둔다.
+- [ ] 계약: game-mode-contract §4 선택 순서와 §6 로그에 새 줄을 적는다.
+
+### 8-3. 재정렬 전제 감사
+
+`ManualOrder` docstring(`:54-55`)은 "우선순위 순으로만 고르므로 `AddAction` 재정렬이 일어나지 않는다"고 적고 있다. `Claimed`(`:62`)는 상태 객체를 보관하므로 이 전제가 깨지면 B4 위반이 된다.
+
+- [ ] 전제가 깨질 수 있는 경로를 IL과 Blueprint로 확인한다.
+  - 높은 우선순위 선택 뒤 새로 열린 하위 선택창의 우선순위가 더 낮은 경우(예: 피처가 여는 주문서 선택창).
+  - `FillDefault`(`:123-135`)가 이미 적용한 명시 선택보다 낮은 우선순위의 상태를 고르는 경우.
+- [ ] 엔진 자체 `PerformSelections`도 같은 경로를 갖는지 대조한다. 엔진과 같으면 바닐라 동작이고, 재정렬 뒤 `Claimed`의 옛 상태 객체가 새 상태를 막지 못해 같은 선택을 두 번 시도할 수 있는지가 남는 확인이다.
+- [ ] 결과를 docstring과 game-mode-contract에 적는다. 코드 수정이 필요하면 이 Phase에 넣지 않고 별도 확인을 받는다.
+
+커밋: `feat: R12-6 — ManualOrder 선택 실패 기록`(8-2). 8-1 · 8-3은 계약 문서 커밋.
+
+## 12. Phase 9 — UMM 활성 판정 (A13, 조건부)
+
+- [ ] 시작 조건: ToyBox가 UMM에서 로드 오류(`ErrorOnLoading`)인데 AutoLevel이 연동을 `Enabled`로 판정하는 재현. 재현이 없으면 이 Phase는 열지 않는다(R12-6-final §2.6).
+- [ ] 재현되면 `ToyBoxGestalt.Status`의 앞단에 UMM `modEntries`의 `Id` · `Enabled` · `!ErrorOnLoading` 검사를 두고, 기존 어셈블리 · API · 기능 검사는 그 뒤에 그대로 둔다.
+- [ ] CompatTests의 네 상태 검사(부재 · 지원 API · 비활성 · 불일치)에 로드 실패를 더한다.
+
+## 13. Phase 10 — 주석 영어 · 한국어 병기 (A15)
+
+목적: 공개 코드 주석을 영어 기준으로 바꾸고, 같은 내용을 한국어로 바로 아래에 둔다. 동작은 바뀌지 않는다. D3가 정해진 뒤 시작한다.
+
+### 10-1. 변환 규칙
+
+- [ ] 블록마다 영어를 먼저 쓰고 바로 아래에 같은 내용을 한국어로 쓴다. XML `<summary>` · `<remarks>` · `<item>` 안도 같은 순서다.
+- [ ] 영어가 기준이다. 한국어는 영어와 같은 내용이며 더하거나 빼지 않는다.
+- [ ] 옮기기 전에 줄인다. 코드가 하는 일을 다시 말하는 주석은 지우고, 이유 · 불변식 · 엔진 동작 근거만 남긴다.
+- [ ] 작업 · 리뷰 · 게이트 번호(`R15-0` · `F13-0-01` · `G11-A §2-3` · `S4.2` · `codereview 8-1` · `11차 리뷰`)를 지우고, 그 번호가 가리키던 이유를 한 줄로 쓴다.
+- [ ] 계약 문서 참조(`planner-contract §6` 등)는 D3에서 공개 포함으로 정하면 남기고, 제외로 정하면 이유 문장으로 바꾼다.
+- [ ] 진단 코드(`P-201` · `B-107` · `M-102`)는 제품 식별자이므로 남긴다.
+- [ ] 로그 · UI 문자열은 바꾸지 않는다. 주석만 바꾼다.
+
+### 10-2. 묶음과 커밋
+
+| 묶음 | 대상 | 규모(주석 줄 / 한글 줄 / 번호 줄) |
+|---|---|---|
+| 10a | `mod/AutoLevel` 루트 10파일 | 148 / 105 / 12 |
+| 10b | `mod/AutoLevel/Planner` 26파일 | 906 / 630 / 95 |
+| 10c | `mod/AutoLevel.Core` 32파일 | 821 / 576 / 61 |
+| 10d | `mod/AutoLevel.Tests` · `AutoLevel.CompatTests` 33파일 | 325 / 245 / 50 |
+| 10e | Python(`tools/` · `buildfile/` · `catalog/`) 46파일 | — / 220 / 측정 |
+| 10f | csproj · props XML 주석 | 측정 |
+
+묶음 규모는 1절 측정 스크립트의 폴더별 합계다(`//` 포함 줄 기준이라 근사치). 묶음마다 커밋 하나이고, 10b · 10c처럼 큰 묶음은 하위 폴더나 파일 군으로 다시 나눌 수 있다.
+
+### 10-3. 자동 검사 (기존 소스 스캔 테스트 확장)
+
+- [ ] `AutoLevel.Tests/LocalizationTests.cs`는 이미 `mod/` 아래 `.cs`를 스캔한다(`:21-23`). 같은 파일 목록에 두 검사를 더한다.
+  - 한글이 들어간 주석 줄은 같은 주석 묶음 안에서 영어 줄 뒤에 와야 한다(영어 줄이 없는 한글 주석 묶음 금지).
+  - 주석에 작업 · 리뷰 · 게이트 번호 정규식이 없어야 한다.
+- [ ] Python은 `buildfile/tests` 쪽에 같은 검사를 하나 더한다.
+- [ ] 이 검사는 묶음별 진행 중에는 아직 바꾸지 않은 폴더를 건너뛰는 목록을 두고, 마지막 묶음에서 목록을 비운다.
+
+### 10-4. 검증
+
+- [ ] 묶음마다 빌드 결과물 비교: 주석만 바뀌었으므로 Release `AutoLevel.dll`의 메서드 IL이 같아야 한다. 디버그 정보 · MVID는 줄 번호에 따라 바뀌므로 빼고, 디컴파일 결과나 메서드 본문 덤프로 비교한다. 다르면 코드가 바뀐 것이다.
+- [ ] 전체 테스트 · CompatTests 동일.
+- [ ] 사람 검토: 묶음 diff에서 영어 · 한국어 내용이 같은지, 지운 주석이 이유 · 불변식을 담고 있지 않았는지 본다.
+
+완료 조건: 자동 검사 통과(건너뛰기 목록 비어 있음), IL 동일, 가이드라인 A15 "맞음".
+
+## 14. Phase 11 — 공개 준비와 스냅샷
+
+### 11-1. 결정 확인
+
+- [ ] D1 라이선스, D2 카탈로그, D3 공개 문서 범위, D6 `Info.json`.
+
+### 11-2. 루트 파일
+
+- [ ] `README.md`(영어): 기능 요약, 필요 모드(없음), 설치, `GamePath.props` 빌드, 카탈로그 생성(D2), 테스트 실행(`dotnet test` · Python · CompatTests), 폴더 구조, 상태 수명 요약, 가이드라인 링크.
+- [ ] `LICENSE`(D1).
+- [ ] `Repository.json`(UMM 업데이트 확인용) + `Info.json`의 `Repository` 주소(D6).
+- [ ] `CHANGELOG.md`: `0.5.0` · `0.8.0` · `0.9.0` · `1.0.0` · 다음 릴리스. `docs/archive/devplan_1.0.0.md` 진행 현황과 Nexus 변경 기록에서 옮긴다.
+- [ ] `.gitattributes`: 텍스트 LF.
+- [ ] 공개용 `AGENTS.md`: 내부 문서(`devplan.md` · `structure.md` · 진행 대장)를 가리키는 줄을 공개 범위에 맞게 줄인다.
+
+### 11-3. 포함 · 제외
+
+| 포함 | 제외 |
+|---|---|
+| `mod/`(코드 · 테스트 · 계약 문서), `buildfile/`, `catalog/schema/`, `tools/`, `docs/code-guidelines.md`, 루트 공개 파일, `AutoLevel.sln` | `findings/`, `docs/stage3/` · `docs/gates/` · `docs/handoffs/` · `docs/archive/`, `codereview*.md`, `devplan.md`, `autolevel_ledger.html`, `mod기획서.md`, `배포방법.md`, `compat-review-mods/`, `work/`, 이 문서 |
+| `catalog/generated/` — D2 | `docs/nexus/` — README에 필요한 내용만 옮긴다 |
+
+### 11-4. 스냅샷 절차
+
+- [ ] main의 확정 커밋에서 포함 목록만 꺼내 히스토리 없는 새 저장소를 만든다.
+- [ ] 식별 정보 검사: 회사명 · 개인 경로 · 계정 · 환경변수 값 · 내부 문서 링크 grep(주석 · 문서 · 테스트 데이터 포함). 내부 문서로 가는 링크는 0이어야 한다.
+- [ ] 깨끗한 clone에서 `GamePath.props` → (카탈로그 생성) → 빌드 → C# · Python 테스트 → CompatTests. 결과가 내부 저장소의 같은 커밋과 같아야 한다.
+
+완료 조건: 깨끗한 clone에서 카탈로그 생성 → 빌드 → C# · Python 테스트 · CompatTests가 리팩토링 전(Phase 0 기준선)과 같은 결과.
+
+## 15. 위험과 대응
+
+| 위험 | 단계 | 대응 |
+|---|---|---|
+| 공개화 참조로 오버로드 선택이 바뀜 | 3 | 멤버 참조 목록 전후 비교, 다르면 명시적 호출로 고정 |
+| CLR 접근 검사로 CompatTests 실패 | 6 | 6-0 스파이크, 경로별 reflection 유지 |
+| 이름 변경이 CompatTests 문자열 · `cref` · 문서를 깨뜨림 | 4 | 같은 커밋에서 갱신, 이전 이름 grep 0 |
+| 네임스페이스 변경 파급 | 4 | D4 유지 |
+| 번역 중 의미 변화 · 이유 손실 | 10 | 영어 기준 · 줄이기 규칙 · 묶음별 사람 검토 · IL 동일 확인 |
+| 지연 단계 이동이 다른 모드의 읽기 순서를 바꿈 | 2 | 2-2 조사, V4 전 미채택 |
+| 이름이 같은 헬퍼를 합치다 의미가 바뀜 | 5 | 본문 · 호출부 비교, 의미가 다르면 유지. 바꿈은 비교표의 차이 열이 "없음"일 때만 |
+| 예외를 올리거나 로그를 더해 동작이 바뀜 | 7 | 해당 커밋을 동작 변경으로 분리하고 계약 문서를 같이 고침 |
+| 실패 로그 양 증가 | 8 | 재생 중 반복 확인 |
+| 안전 작업과 기계적 Phase의 같은 파일 충돌 | 전체 | 2.1의 규칙: 안전 작업 우선, 동시 수정 금지 |
+| `1.0.x` 수정과의 충돌 | 4 · 5 · 10 | 브랜치를 짧게, main 수정 먼저 |
+| 동작 중립 주장이 검증 없이 남음 | 전체 | 원칙 3의 측정 없이는 완료 표시 안 함 |
+
+## 부록 A. Harmony 패치 이름 대응
+
+감쌀 클래스가 비어 있으면 이미 그 클래스 안에 있다. 줄 번호는 `29a9cb7` 기준이다.
+
+| # | 현재 (파일:줄 · 클래스) | 대상 | 새 이름 | 감쌀 클래스 |
+|---|---|---|---|---|
+| 1 | `ManualOrder.cs:165` `ManualOrderHook` | `AddClassLevels.PerformSelections` | `AddClassLevels_PerformSelections_ManualOrder_Patch` | `ManualOrder` |
+| 2 | `Planner/ReplayHooks.cs:54` `PerformSelectionsHook` | `AddClassLevels.PerformSelections` | `AddClassLevels_PerformSelections_Replay_Patch` | `ReplayHooks`(새) |
+| 3 | `SpellbookRouting.cs:84` `SpellbookRoutingHook` | `AddClassLevels.PerformSpellSelections` | `AddClassLevels_PerformSpellSelections_Routing_Patch` | `SpellbookRouting` |
+| 4 | `Planner/ReplayHooks.cs:67` `PerformSpellSelectionsHook` | `AddClassLevels.PerformSpellSelections` | `AddClassLevels_PerformSpellSelections_Replay_Patch` | `ReplayHooks` |
+| 5 | `Patches.cs:11` `BlueprintsCacheInitPatch` | `BlueprintsCache.Init` | `BlueprintsCache_Init_Patch`(Phase 2 채택 시 `StartGameLoader_LoadPackTOC_Patch`) | `FeatureListPatcher` |
+| 6 | `Patches.cs:51` `ApplyPostLoadFixesScope` | `EntityFact.ApplyPostLoadFixes` | `EntityFact_ApplyPostLoadFixes_Patch` | `FeatureListPatcher` |
+| 7 | `Patches.cs:73` `AddClassLevelsLoadGuard` | `AddClassLevels.OnActivate` | `AddClassLevels_OnActivate_Patch` | `FeatureListPatcher` |
+| 8 | `PlanApplyScope.cs:14` `PlanApplyScope` | `LevelUpController.ApplyLevelUpPlan` | `LevelUpController_ApplyLevelUpPlan_Patch` | `PlanApplyScope`(바깥 클래스로 감쌈) |
+| 9 | `Planner/BuildAutoLevel.cs:44` `PlanEnabled` | `LevelUpController.IsPlanEnabled` | `LevelUpController_IsPlanEnabled_Patch` | |
+| 10 | `Planner/BuildOrderGate.cs:94` `OpenGate` | `LevelUpConfig.OpenUI` | `LevelUpConfig_OpenUI_BuildOrder_Patch` | |
+| 11 | `Planner/BuildOrderGate.cs:136` `MaxNormalGate` | `RespecWindowVM.MaxLevelup` | `RespecWindowVM_MaxLevelup_Patch` | |
+| 12 | `Planner/BuildOrderGate.cs:143` `MaxMythicGate` | `RespecWindowVM.MaxMythic` | `RespecWindowVM_MaxMythic_Patch` | |
+| 13 | `Planner/CustomPlans.cs:151` `DollRace` | `LevelUpController.Start` | `LevelUpController_Start_DollRace_Patch` | |
+| 14 | `Planner/CustomPlans.cs:183` `ClassPhaseCompleted` | `CharGenClassPhaseVM.CheckIsCompleted` | `CharGenClassPhaseVM_CheckIsCompleted_Patch` | |
+| 15 | `Planner/CustomPlans.cs:201` `SameRace` | `LevelUpController.SelectRace` | `LevelUpController_SelectRace_Patch` | |
+| 16 | `Planner/CustomPlans.cs:220` `MythicPlanHook` | `UnitProgressionData.GetNextLevelPlan` | `UnitProgressionData_GetNextLevelPlan_Patch` | |
+| 17 | `Planner/CustomPlans.cs:246` `NextHire` | `LevelUpConfig.OpenUI` | `LevelUpConfig_OpenUI_NextHire_Patch` | |
+| 18 | `Planner/FixedLevelPlans.cs:42` `Scope` | `AddClassLevels.LevelUp`(`TargetMethod`) | `AddClassLevels_LevelUp_Patch` | |
+| 19 | `Planner/FixedLevelPlans.cs:67` `Record` | `AddClassLevels.AddLevel`(`TargetMethod`) | `AddClassLevels_AddLevel_FixedRecord_Patch` | |
+| 20 | `Planner/FixedLevelPlans.cs:93` `MythicCommit` | `LevelUpController.Commit` | `LevelUpController_Commit_MythicRecord_Patch` | |
+| 21 | `Planner/FixedLevelPlans.cs:137` `CustomCommit` | `LevelUpController.Commit` | `LevelUpController_Commit_CustomRecord_Patch` | |
+| 22 | `Planner/LevelUpSession.cs:467` `LevelUpSessionStart` | `LevelUpController.Start` | `LevelUpController_Start_EditorSession_Patch` | `LevelUpSession` |
+| 23 | `Planner/LevelUpSession.cs:545` `LevelUpSessionPhases` | `CharGenVM.Need*Phase` 7개(`TargetMethods`) | `CharGenVM_NeedPhase_Patch` | `LevelUpSession` |
+| 24 | `Planner/LevelUpSession.cs:575` `LevelUpSessionFixedChoices` | `LevelUpController.AddAction` · `UpdatePreview`(`TargetMethods`) | `LevelUpController_FixedChoices_Patch` | `LevelUpSession` |
+| 25 | `Planner/LevelUpSession.cs:636` `LevelUpSessionFixedChoicePhases` | `CharGenVM.UpdateAllPhases` | `CharGenVM_UpdateAllPhases_Patch` | `LevelUpSession` |
+| 26 | `Planner/LevelUpSession.cs:647` `LevelUpSessionPreviewLateFacts` | `UnitHelper.Copy` | `UnitHelper_Copy_PreviewLateFacts_Patch` | `LevelUpSession` |
+| 27 | `Planner/LevelUpSession.cs:665` `LevelUpSessionHideFixedChoices` | `CharGenVM.DefineVisibleFeatureSelections` | `CharGenVM_DefineVisibleFeatureSelections_Patch` | `LevelUpSession` |
+| 28 | `Planner/LevelUpSession.cs:684` `LevelUpSessionOwnedFixedChoiceCompletion` | `FeatureSelectionState.CanSelectAnything` | `FeatureSelectionState_CanSelectAnything_Patch` | `LevelUpSession` |
+| 29 | `Planner/LevelUpSession.cs:699` `LevelUpSessionCommit` | `LevelUpController.Commit` | `LevelUpController_Commit_EditorSession_Patch` | `LevelUpSession` |
+| 30 | `Planner/LevelUpSession.cs:789` `LevelUpSessionMythicUnlock` | `BlueprintMythicsSettings.IsMythicClassUnlocked` | `BlueprintMythicsSettings_IsMythicClassUnlocked_Patch` | `LevelUpSession` |
+| 31 | `Planner/PetPlans.cs:49` `AddPetHook` | `UnitPartPetMaster.AddPet` | `UnitPartPetMaster_AddPet_Patch` | |
+| 32 | `Planner/PetPlans.cs:103` `RemovePetHook` | `UnitPartPetMaster.RemovePet` | `UnitPartPetMaster_RemovePet_Patch` | |
+| 33 | `Planner/PlannerRespec.cs:216` `PlannerRespecFirstLevel` | `LevelUpConfig.OpenUI` | `LevelUpConfig_OpenUI_RespecFirstLevel_Patch` | `PlannerRespec` |
+| 34 | `Planner/ReplayHooks.cs:19` `SelectFeatureHook` | `LevelUpController.SelectFeature` | `LevelUpController_SelectFeature_Patch` | `ReplayHooks` |
+| 35 | `Planner/ReplayHooks.cs:40` `SelectClassHook` | `LevelUpController.SelectClass` | `LevelUpController_SelectClass_Patch` | `ReplayHooks` |
+| 36 | `Planner/ReplayHooks.cs:89` `SpendSkillPointHook` | `LevelUpController.SpendSkillPoint` | `LevelUpController_SpendSkillPoint_Patch` | `ReplayHooks` |
+| 37 | `Planner/ReplayHooks.cs:102` `SelectSpellHook` | `LevelUpController.SelectSpell` | `LevelUpController_SelectSpell_Patch` | `ReplayHooks` |
+| 38 | `Planner/ReplayHooks.cs:121` `TricksterExclusion` | `BlueprintFeatureSelection.IsIgnorePrerequisites` | `BlueprintFeatureSelection_IsIgnorePrerequisites_Patch` | `ReplayHooks` |
+| 39 | `Planner/ReplayHooks.cs:159` `CreationStatsHook` | `AddClassLevels.ApplyStatsDistributionPreset` | `AddClassLevels_ApplyStatsDistributionPreset_Patch` | `ReplayHooks` |
+| 40 | `ToyBoxGestalt.cs:453` `CopyHook` | `UnitHelper.Copy` | `UnitHelper_Copy_Gestalt_Patch` | |
+| 41 | `ToyBoxGestalt.cs:477` `RespecHook` | `UnitHelper.RespecOnCommit` | `UnitHelper_RespecOnCommit_Patch` | |
+| 42 | `ToyBoxGestalt.cs:502` `LevelsHook` | `UnitProgressionData.SetupLevelsIfNecessary` | `UnitProgressionData_SetupLevelsIfNecessary_Patch` | |
+| 43 | `ToyBoxGestalt.cs:588` `AddLevelHook` | `AddClassLevels.AddLevel` | `AddClassLevels_AddLevel_Gestalt_Patch` | |
+| 44 | `ToyBoxGestalt.cs:615` `StartHook` | `LevelUpController.Start` | `LevelUpController_Start_Gestalt_Patch` | |
+| 45 | `ToyBoxGestalt.cs:640` `ClassHook` | `SelectClass.Apply` | `SelectClass_Apply_Patch` | |
+| 46 | `ToyBoxGestalt.cs:663` `CommitHook` | `LevelUpController.Commit` | `LevelUpController_Commit_Gestalt_Patch` | |
+| 47 | `ToyBoxGestalt.cs:679` `StopHook` | `LevelUpController.Stop` | `LevelUpController_Stop_Patch` | |
+
+같은 대상에 둘 이상이어서 `_{Purpose}`를 붙인 대상: `AddClassLevels.PerformSelections`(2) · `PerformSpellSelections`(2) · `AddLevel`(2), `LevelUpController.Commit`(4) · `Start`(3), `LevelUpConfig.OpenUI`(3), `UnitHelper.Copy`(2).
+
+## 부록 B. reflection 판정
+
+| 파일:줄 | 대상 | 판정 |
+|---|---|---|
+| `ComponentFactory.cs:27-57` · `:84` | `AddClassLevels` · `SelectionEntry` 필드 19곳(`SetField` + `AccessTools.Field`) | public 11곳은 Phase 5에서 직접 대입, 비공개 8곳은 Publicizer 뒤 직접 접근(Phase 6-1 순서 1) |
+| `ManualOrder.cs:67` | `AddClassLevels.GetSelectionItem` | 직접 호출 |
+| `Patches.cs:76` | `AddClassLevels.Owner` getter | 직접 접근 |
+| `Planner/EngineReplayer.cs:49-50` | `AddClassLevels.AddLevel` · `GetFeaturesSelectionHistory` | 직접 호출 |
+| `Planner/LevelUpSession.cs:470` | `AddClassLevels.ApplyStatsDistributionPreset` | 직접 호출 |
+| `Planner/LevelUpSession.cs:501-502` | `StatsDistribution.<Available>k__BackingField` | 속성 setter 직접 호출 |
+| `Planner/LevelUpSession.cs:552` · `:582-583` | `TargetMethods`의 `CharGenVM.Need*Phase` · `AddAction` · `UpdatePreview` | `TargetMethods` 유지, 이름은 `nameof`(Phase 4-2) |
+| `Planner/FixedLevelPlans.cs:46` · `:70` | `TargetMethod`의 `AddClassLevels.LevelUp` · `AddLevel` | attribute 대상으로(Phase 4-2) |
+| `Planner/CustomPlans.cs:25-33` | `UnitProgressionData.m_MythicLevelPlanDisabled` · `m_LevelPlans` · `m_PlansForRestore` | 직접 접근 |
+| `Planner/ReplayHooks.cs:162-163` | `StatsDistribution.StatValues` | 직접 접근 |
+| `UnitDeityPatcher.cs:62` | `AddFacts.m_Facts` | 직접 접근 |
+| `Planner/CandidateInspector.cs:198` | `ContextData<IgnorePrerequisites>.s_CurrentIndex` | 직접 접근 |
+| `Planner/ContentOrigin.cs:44-46` | `BlueprintsCache.m_LoadedBlueprints` · `BlueprintCacheEntry.Offset` | 유지 — 인식 실패 시 기능 축소 계약(B6) |
+| `Planner/GameData.cs:182-183` | `StartingStatPoints` 필드 또는 속성 | 유지 — 버전별 멤버 차이 |
+| `Planner/MainPlans.cs:85` | `UnitProgressionData.NextObligatoryMythicClass` | 유지 — 없으면 경고 뒤 대체 경로 |
+| `Planner/MainPlans.cs:168` · `:276` | `Get` · `GetBlueprint` 동적 호출, 필드 스캔 | 유지 — 동적 대상 |
+| `ToyBoxGestalt.cs` 전체 | ToyBox 타입 · 메서드 · 속성 | 유지 — 선택 모드 |
+| Harmony `___m_LevelUpController` · `___m_ApplyingPlan` | 인자 주입 | 유지 — Harmony 관례 |
+
+## 부록 C. CompatTests 이름 의존 (`mod/AutoLevel.CompatTests/Program.cs`)
+
+| 줄 | 조회 | Phase 4에서 |
+|---|---|---|
+| 96 · 534 | `ToyBoxGestalt` `"LevelsHook"` | `"UnitProgressionData_SetupLevelsIfNecessary_Patch"` |
+| 243 · 429 | `"RespecHook"` | `"UnitHelper_RespecOnCommit_Patch"` |
+| 703 | `"CopyHook"` | `"UnitHelper_Copy_Gestalt_Patch"` |
+| 1048 | `"StartHook"` | `"LevelUpController_Start_Gestalt_Patch"` |
+| 1056 | `"AddLevelHook"` | `"AddClassLevels_AddLevel_Gestalt_Patch"` |
+| 1126 | `"ClassHook"` | `"SelectClass_Apply_Patch"` |
+| 742 | `FixedLevelPlans` `"CustomCommit"` | `"LevelUpController_Commit_CustomRecord_Patch"` |
+| 785 | `FixedLevelPlans` `"Record"` | `"AddClassLevels_AddLevel_FixedRecord_Patch"` |
+| 127 · 321 | `ToyBoxGestalt` `"Scope"` | 그대로(패치 아님) |
+| 35 · 274 | `"BuildPointsTarget"` | 그대로(열거형) |
+| 241 | `HarmonyPatch` attribute를 가진 중첩 타입 순회 | 그대로(이름 무관) |
+
+`GetType("AutoLevel.…")` 조회는 D4(네임스페이스 유지)이면 바뀌지 않는다.
